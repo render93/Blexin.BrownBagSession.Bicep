@@ -1,0 +1,1 @@
+az deployment group create --resource-group bb-gherard --template-file main.bicep --parameters main.parameters.json

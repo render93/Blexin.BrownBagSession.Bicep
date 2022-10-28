@@ -1,0 +1,459 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.11.1.770",
+      "templateHash": "13075776174894379904"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]"
+    },
+    "environment": {
+      "type": "string",
+      "allowedValues": [
+        "dev",
+        "test",
+        "prod"
+      ]
+    },
+    "sqlAdministratorLogin": {
+      "type": "string"
+    },
+    "storageSku": {
+      "type": "string",
+      "defaultValue": "Standard_LRS",
+      "allowedValues": [
+        "Standard_LRS",
+        "Standard_GRS"
+      ]
+    }
+  },
+  "variables": {
+    "$fxv#0": "{\"sqlAdministratorPasswordGenerated\":\"\"}\r\n",
+    "sqlAdministratorPassword": "[json(variables('$fxv#0')).sqlAdministratorPasswordGenerated]",
+    "storageResourceName": "[format('stbicepsession{0}', parameters('environment'))]",
+    "planResourceName": "[format('plan-bicepsession-{0}', parameters('environment'))]",
+    "funcResourceName": "[format('func-bicepsession-{0}', parameters('environment'))]",
+    "sqlResourceName": "[format('sql-bicepsession-{0}', parameters('environment'))]",
+    "sqldbResourceName": "[format('sqldb-bicepsession-{0}', parameters('environment'))]",
+    "appiResourceName": "[format('appi-bicepsession-{0}', parameters('environment'))]",
+    "kvResourceName": "kv-bicepsession-main"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-10-01",
+      "name": "monitoring",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "resourceName": {
+            "value": "[variables('appiResourceName')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.11.1.770",
+              "templateHash": "10655266317532116667"
+            }
+          },
+          "parameters": {
+            "resourceName": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Insights/components",
+              "apiVersion": "2015-05-01",
+              "name": "[parameters('resourceName')]",
+              "location": "[parameters('location')]",
+              "kind": "web",
+              "properties": {
+                "Application_Type": "web"
+              }
+            }
+          ],
+          "outputs": {
+            "instrumentationKey": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Insights/components', parameters('resourceName'))).InstrumentationKey]"
+            },
+            "connectionString": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Insights/components', parameters('resourceName'))).ConnectionString]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-10-01",
+      "name": "data",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "kvResourceName": {
+            "value": "[variables('kvResourceName')]"
+          },
+          "sqlAdministratorLogin": {
+            "value": "[parameters('sqlAdministratorLogin')]"
+          },
+          "sqlAdministratorPassword": {
+            "value": "[variables('sqlAdministratorPassword')]"
+          },
+          "sqlServerResourceName": {
+            "value": "[variables('sqlResourceName')]"
+          },
+          "sqldbResourceName": {
+            "value": "[variables('sqldbResourceName')]"
+          },
+          "storageResourceName": {
+            "value": "[variables('storageResourceName')]"
+          },
+          "storageSku": {
+            "value": "[parameters('storageSku')]"
+          },
+          "environment": {
+            "value": "[parameters('environment')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.11.1.770",
+              "templateHash": "15442735150495049346"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "kvResourceName": {
+              "type": "string"
+            },
+            "environment": {
+              "type": "string"
+            },
+            "storageResourceName": {
+              "type": "string"
+            },
+            "storageSku": {
+              "type": "string"
+            },
+            "sqlServerResourceName": {
+              "type": "string"
+            },
+            "sqldbResourceName": {
+              "type": "string"
+            },
+            "sqlAdministratorLogin": {
+              "type": "string"
+            },
+            "sqlAdministratorPassword": {
+              "type": "secureString"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Storage/storageAccounts",
+              "apiVersion": "2021-08-01",
+              "name": "[parameters('storageResourceName')]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "[parameters('storageSku')]"
+              },
+              "kind": "Storage"
+            },
+            {
+              "type": "Microsoft.Sql/servers",
+              "apiVersion": "2022-02-01-preview",
+              "name": "[parameters('sqlServerResourceName')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "administratorLogin": "[parameters('sqlAdministratorLogin')]",
+                "administratorLoginPassword": "[parameters('sqlAdministratorPassword')]"
+              }
+            },
+            {
+              "type": "Microsoft.Sql/servers/firewallRules",
+              "apiVersion": "2022-05-01-preview",
+              "name": "[format('{0}/{1}', parameters('sqlServerResourceName'), 'AllIps')]",
+              "properties": {
+                "startIpAddress": "0.0.0.0",
+                "endIpAddress": "255.255.255.255"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers', parameters('sqlServerResourceName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Sql/servers/databases",
+              "apiVersion": "2022-02-01-preview",
+              "name": "[format('{0}/{1}', parameters('sqlServerResourceName'), parameters('sqldbResourceName'))]",
+              "location": "[parameters('location')]",
+              "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers', parameters('sqlServerResourceName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2022-07-01",
+              "name": "[format('{0}/{1}', parameters('kvResourceName'), format('sqlpasswordgenerated-{0}', parameters('environment')))]",
+              "properties": {
+                "value": "[parameters('sqlAdministratorPassword')]",
+                "attributes": {
+                  "enabled": true
+                }
+              }
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2022-07-01",
+              "name": "[format('{0}/{1}', parameters('kvResourceName'), format('sqlconnectionstringgenerated-{0}', parameters('environment')))]",
+              "properties": {
+                "value": "[format('Server=tcp:{0},1433;Initial Catalog={1};Persist Security Info=False;User ID={2};Password={3};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;', reference(resourceId('Microsoft.Sql/servers', parameters('sqlServerResourceName'))).fullyQualifiedDomainName, parameters('sqldbResourceName'), parameters('sqlAdministratorLogin'), parameters('sqlAdministratorPassword'))]",
+                "attributes": {
+                  "enabled": true
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers/databases', parameters('sqlServerResourceName'), parameters('sqldbResourceName'))]",
+                "[resourceId('Microsoft.Sql/servers', parameters('sqlServerResourceName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "storageAccountId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageResourceName'))]"
+            },
+            "dbConnectionStringSecretUri": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.KeyVault/vaults/secrets', parameters('kvResourceName'), format('sqlconnectionstringgenerated-{0}', parameters('environment')))).secretUri]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-10-01",
+      "name": "backend",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "kvResourceName": {
+            "value": "[variables('kvResourceName')]"
+          },
+          "appInsightsConnectionString": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring')).outputs.connectionString.value]"
+          },
+          "appInsightsInstrumentationKey": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring')).outputs.instrumentationKey.value]"
+          },
+          "dbConnectionStringSecretUri": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'data')).outputs.dbConnectionStringSecretUri.value]"
+          },
+          "environment": {
+            "value": "[parameters('environment')]"
+          },
+          "funcResourceName": {
+            "value": "[variables('funcResourceName')]"
+          },
+          "planResourceName": {
+            "value": "[variables('planResourceName')]"
+          },
+          "storageAccountId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'data')).outputs.storageAccountId.value]"
+          },
+          "storageAccountName": {
+            "value": "[variables('storageResourceName')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.11.1.770",
+              "templateHash": "15141755097385170961"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "environment": {
+              "type": "string"
+            },
+            "kvResourceName": {
+              "type": "string"
+            },
+            "planResourceName": {
+              "type": "string"
+            },
+            "funcResourceName": {
+              "type": "string"
+            },
+            "storageAccountName": {
+              "type": "string"
+            },
+            "storageAccountId": {
+              "type": "string"
+            },
+            "appInsightsInstrumentationKey": {
+              "type": "string"
+            },
+            "appInsightsConnectionString": {
+              "type": "secureString"
+            },
+            "dbConnectionStringSecretUri": {
+              "type": "string"
+            }
+          },
+          "variables": {
+            "appPlanConfigurationMap": {
+              "dev": {
+                "appServicePlan": {
+                  "sku": {
+                    "name": "F1",
+                    "tier": "Free"
+                  }
+                }
+              },
+              "test": {
+                "appServicePlan": {
+                  "sku": {
+                    "name": "F1",
+                    "tier": "Free"
+                  }
+                }
+              },
+              "prod": {
+                "appServicePlan": {
+                  "sku": {
+                    "name": "P1",
+                    "tier": "Premium"
+                  }
+                }
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Web/sites/config",
+              "apiVersion": "2022-03-01",
+              "name": "[format('{0}/{1}', parameters('funcResourceName'), 'appsettings')]",
+              "properties": {
+                "AzureWebJobsStorage": "[format('DefaultEndpointsProtocol=https;AccountName={0};AccountKey={1}', parameters('storageAccountName'), listKeys(parameters('storageAccountId'), '2019-04-01').keys[0].value)]",
+                "FUNCTIONS_EXTENSION_VERSION": "~4",
+                "FUNCTIONS_WORKER_RUNTIME": "dotnet",
+                "DbConnectionString": "[format('@Microsoft.KeyVault(SecretUri={0})', parameters('dbConnectionStringSecretUri'))]",
+                "APPINSIGHTS_INSTRUMENTATIONKEY": "[if(equals(parameters('environment'), 'prod'), parameters('appInsightsInstrumentationKey'), '')]",
+                "APPLICATION_INSIGHTS_CONNECTION_STRING": "[if(equals(parameters('environment'), 'prod'), parameters('appInsightsConnectionString'), '')]",
+                "ApplicationInsightsAgent_EXTENSION_VERSION": "[if(equals(parameters('environment'), 'prod'), '~3', '')]",
+                "APPSERVICEAPPLOGS_TRACE_LEVEL": "[if(equals(parameters('environment'), 'prod'), 'Info', '')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('funcResourceName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/accessPolicies",
+              "apiVersion": "2022-07-01",
+              "name": "[format('{0}/{1}', parameters('kvResourceName'), 'add')]",
+              "properties": {
+                "accessPolicies": [
+                  {
+                    "objectId": "[reference(resourceId('Microsoft.Web/sites', parameters('funcResourceName')), '2022-03-01', 'full').identity.principalId]",
+                    "tenantId": "[subscription().tenantId]",
+                    "permissions": {
+                      "secrets": [
+                        "get",
+                        "list"
+                      ]
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('funcResourceName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Web/serverfarms",
+              "apiVersion": "2022-03-01",
+              "name": "[parameters('planResourceName')]",
+              "location": "[parameters('location')]",
+              "sku": "[variables('appPlanConfigurationMap')[parameters('environment')].appServicePlan.sku]",
+              "properties": {}
+            },
+            {
+              "type": "Microsoft.Web/sites",
+              "apiVersion": "2022-03-01",
+              "name": "[parameters('funcResourceName')]",
+              "kind": "functionapp",
+              "location": "[parameters('location')]",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('planResourceName'))]",
+                "httpsOnly": true
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', parameters('planResourceName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Web/serverfarms', parameters('planResourceName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'data')]",
+        "[resourceId('Microsoft.Resources/deployments', 'monitoring')]"
+      ]
+    }
+  ]
+}

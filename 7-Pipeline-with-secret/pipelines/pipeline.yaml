@@ -1,0 +1,129 @@
+trigger: none
+
+parameters:
+  - name: ResourceGroup
+    type: string
+    default: bb-gherard
+    
+  - name: TemplateFile
+    type: string
+    default: 7-Pipeline-with-secret/main.bicep
+  
+  - name: ParametersFile
+    type: string
+    default: 7-Pipeline-with-secret/main.parameters.json
+  
+  - name: FuncAppName
+    type: string
+    default: func-bicepsession-prod
+
+stages:
+- stage: 'Provisioning'
+
+  jobs:
+
+  - job:
+    displayName: 'Provisioning'
+    pool:
+      vmImage: 'ubuntu-latest'
+    
+    steps:
+    - checkout: self
+
+    - task: PowerShell@2
+      displayName: 'Generate password for SQL database'
+      inputs:
+        filePath: '$(Build.SourcesDirectory)/7-Pipeline-with-secret/scripts/password-generator.ps1'
+
+    - task: AzureCLI@2
+      displayName: 'Provision resources'
+      inputs:
+        azureSubscription: 'Azure Subscription'
+        scriptType: 'pscore'
+        scriptPath: '$(Build.SourcesDirectory)/7-Pipeline-with-secret/scripts/provision.ps1'
+        arguments: >
+          '${{parameters.ResourceGroup}}'
+          '${{parameters.TemplateFile}}'
+          '${{parameters.ParametersFile}}'
+      env:
+        SQL_PASSWORD: $(sql-password)
+
+- stage: 'Seed_database'
+
+  jobs:
+
+  - job:
+    displayName: 'Seed_database'
+    pool:
+      vmImage: 'ubuntu-latest'
+
+    steps:
+    - checkout: self
+
+    - task: PowerShell@2
+      displayName: 'Install SqlServer pwsh module'
+      inputs:
+        targetType: 'inline'
+        script: 'Install-Module -Name SqlServer -Scope CurrentUser -Force'
+
+    - task: AzureCLI@2
+      displayName: 'Seed database'
+      inputs:
+        azureSubscription: 'Azure Subscription'
+        scriptType: 'pscore'
+        scriptPath: '$(Build.SourcesDirectory)/7-Pipeline-with-secret/scripts/sql.ps1'
+        arguments: >
+          '${{parameters.ParametersFile}}'
+    
+- stage: 'Deploy_func'
+
+  jobs:
+
+  - job:
+    displayName: 'Deploy_func'
+    pool:
+      vmImage: 'ubuntu-latest'
+
+    steps:
+    - checkout: self
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Build function'
+      inputs:
+        command: build
+        arguments: '--configuration Release'
+        projects: '**/*.csproj'
+        publishWebProjects: false
+        modifyOutputPath: false
+        zipAfterPublish: false
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Publish function'
+      inputs:
+        command: publish
+        arguments: '--configuration Release --output publish_output'
+        projects: '**/*.csproj'
+        publishWebProjects: false
+        modifyOutputPath: false
+        zipAfterPublish: false
+
+    - task: ArchiveFiles@2
+      displayName: "Archive files"
+      inputs:
+        rootFolderOrFile: "$(System.DefaultWorkingDirectory)/publish_output"
+        includeRootFolder: false
+        archiveFile: "$(System.DefaultWorkingDirectory)/build$(Build.BuildId).zip"
+
+    - task: PublishBuildArtifacts@1
+      displayName: "Publish files"
+      inputs:
+        PathtoPublish: '$(System.DefaultWorkingDirectory)/build$(Build.BuildId).zip'
+        artifactName: 'drop'
+
+    - task: AzureFunctionApp@1
+      displayName: "Deploy func"
+      inputs:
+        azureSubscription: 'Azure Subscription'
+        appType: functionAppLinux
+        appName: '${{parameters.FuncAppName}}'
+        package: $(System.DefaultWorkingDirectory)/*.zip
